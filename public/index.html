@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DATA Speed Test</title>
+    <script src="//cdn.rawgit.com/Mikhus/canvas-gauges/gh-pages/download/2.1.7/all/gauge.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: #1a1a2e;
+            color: white;
+            margin: 0;
+        }
+        h1 { margin-bottom: 20px; }
+        .dashboard {
+            display: flex;
+            gap: 40px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .card {
+            background: #16213e;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        button {
+            background: linear-gradient(45deg, #0f3460, #e94560);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 20px;
+            border-radius: 50px;
+            cursor: pointer;
+            margin-top: 40px;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+        button:hover { transform: scale(1.05); }
+        button:disabled { background: #555; cursor: not-allowed; }
+        .status { margin-top: 10px; color: #aaa; }
+    </style>
+</head>
+<body>
+
+    <h1>🚀 Internet Speed Test</h1>
+
+    <div class="dashboard">
+        <div class="card">
+            <h3>Download (Mbps)</h3>
+            <canvas id="dlGauge"></canvas>
+            <div id="dlText" class="status">Ready</div>
+        </div>
+
+        <div class="card">
+            <h3>Upload (Mbps)</h3>
+            <canvas id="ulGauge"></canvas>
+            <div id="ulText" class="status">Ready</div>
+        </div>
+    </div>
+
+    <button id="startBtn" onclick="runTest()">START TEST</button>
+    <p id="pingDisplay" style="margin-top: 20px; color: #4db8ff;">Ping: -- ms</p>
+
+<script>
+    const API_URL = window.location.origin;
+
+    // 1. Setup Gauges
+    const commonOptions = {
+        width: 250, height: 250,
+        units: "Mbps",
+        minValue: 0, maxValue: 100, // Max speed 100Mbps set kiya hai
+        majorTicks: ["0","10","20","30","40","50","60","70","80","90","100"],
+        minorTicks: 2,
+        strokeTicks: true,
+        highlights: [
+            { from: 0, to: 30, color: 'rgba(200, 50, 50, .75)' },
+            { from: 30, to: 70, color: 'rgba(220, 200, 0, .75)' },
+            { from: 70, to: 100, color: 'rgba(50, 200, 50, .75)' }
+        ],
+        colorPlate: "#16213e",
+        colorMajorTicks: "#f5f5f5",
+        colorMinorTicks: "#ddd",
+        colorTitle: "#fff",
+        colorUnits: "#ccc",
+        colorNumbers: "#eee",
+        needleType: "arrow",
+        needleWidth: 2,
+        needleCircleSize: 7,
+        animationDuration: 1500,
+        animationRule: "linear"
+    };
+
+    const dlGauge = new RadialGauge({ ...commonOptions, renderTo: 'dlGauge' }).draw();
+    const ulGauge = new RadialGauge({ ...commonOptions, renderTo: 'ulGauge' }).draw();
+
+    // 2. Logic Functions
+    async function runTest() {
+        const btn = document.getElementById('startBtn');
+        btn.disabled = true;
+        btn.innerText = "TESTING...";
+        
+        // Reset
+        dlGauge.value = 0;
+        ulGauge.value = 0;
+
+        // Ping
+        document.getElementById('pingDisplay').innerText = "Measuring Ping...";
+        await measurePing();
+
+        // Download
+        document.getElementById('dlText').innerText = "Downloading...";
+        await measureDownload();
+
+        // Upload
+        document.getElementById('ulText').innerText = "Uploading...";
+        await measureUpload();
+
+        btn.disabled = false;
+        btn.innerText = "START TEST";
+    }
+
+    async function measurePing() {
+        const start = performance.now();
+        await fetch(`${API_URL}/ping`);
+        const duration = (performance.now() - start).toFixed(0);
+        document.getElementById('pingDisplay').innerText = `Ping: ${duration} ms`;
+    }
+
+    async function measureDownload() {
+        const start = performance.now();
+        const response = await fetch(`${API_URL}/download`);
+        const blob = await response.blob();
+        
+        const duration = (performance.now() - start) / 1000;
+        const speedMbps = ((blob.size * 8) / duration / 1024 / 1024).toFixed(2);
+        
+        dlGauge.value = speedMbps; // Update Meter
+        document.getElementById('dlText').innerText = `${speedMbps} Mbps`;
+    }
+
+    async function measureUpload() {
+        const size = 2 * 1024 * 1024; // 2MB Upload
+        const payload = new Blob([new Uint8Array(size)]);
+
+        const start = performance.now();
+        await fetch(`${API_URL}/upload`, { method: 'POST', body: payload });
+        
+        const duration = (performance.now() - start) / 1000;
+        const speedMbps = ((size * 8) / duration / 1024 / 1024).toFixed(2);
+
+        ulGauge.value = speedMbps; // Update Meter
+        document.getElementById('ulText').innerText = `${speedMbps} Mbps`;
+    }
+</script>
+
+</body>
+</html>
